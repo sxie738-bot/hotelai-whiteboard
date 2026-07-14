@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>HOTELAI 白板录屏</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="board"></canvas>
+
+    <!-- 使用界面品牌栏（对应参考图 TATALAB / Care每日干货 → HOTELAI / 酒店 AI 谢瑷曈） -->
+    <div id="brandBar" class="hidden">
+      <div class="bb-logo"><span class="bb-mark">H</span> HOTELAI</div>
+      <div class="bb-pill">酒店 AI 谢瑷曈</div>
+    </div>
+
+    <!-- 顶部栏：摄像头模块 -->
+    <div id="topbar" class="bar module">
+      <button id="btnCam" class="chip active">摄像头</button>
+      <button id="btnTele" class="chip">提词器</button>
+      <button id="btnCamera" class="chip">相机</button>
+    </div>
+
+    <!-- 摄像头气泡 -->
+    <div id="camBubble" class="hidden">
+      <canvas id="camGL"></canvas>
+      <div id="camResize"></div>
+    </div>
+
+    <!-- 提词器 -->
+    <div id="tele" class="hidden">
+      <textarea id="teleText" placeholder="输入提词内容，录的时候瞄一眼…"></textarea>
+    </div>
+
+    <!-- 相机调整面板（贴附顶部栏下方，作为摄像头模块一部分） -->
+    <div id="cameraPanel" class="panel hidden">
+      <div class="panel-title">相机调整</div>
+      <label class="row"><span>亮度</span><input type="range" id="camBright" min="0" max="1" step="0.05" value="0.12"></label>
+      <label class="row"><span>瘦脸</span><input type="range" id="camSlim" min="0" max="1" step="0.05" value="0"></label>
+      <label class="row switch"><span>镜像（自拍）</span><input type="checkbox" id="camMirror" checked></label>
+      <div class="divider"></div>
+      <div class="pos-row">
+        <span>位置</span>
+        <div class="pos-btns">
+          <button data-pos="tl">左上</button>
+          <button data-pos="tr">右上</button>
+          <button data-pos="bl">左下</button>
+          <button data-pos="br">右下</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 粗细弹层 -->
+    <div id="sizePanel" class="popover hidden">
+      <div class="pop-title">画笔粗细</div>
+      <div class="size-dots">
+        <button data-size="0"><span class="d d1"></span></button>
+        <button data-size="1"><span class="d d2"></span></button>
+        <button data-size="2"><span class="d d3"></span></button>
+        <button data-size="3"><span class="d d4"></span></button>
+      </div>
+    </div>
+
+    <!-- 图形弹层 -->
+    <div id="shapePanel" class="popover hidden">
+      <div class="pop-title">图形</div>
+      <div class="shape-grid">
+        <button data-shape="rect"><span class="ico" data-i="s-rect"></span><i>方块</i></button>
+        <button data-shape="circle"><span class="ico" data-i="s-circle"></span><i>圆</i></button>
+        <button data-shape="line"><span class="ico" data-i="s-line"></span><i>直线</i></button>
+        <button data-shape="arrow"><span class="ico" data-i="s-arrow"></span><i>箭头</i></button>
+        <button data-shape="triangle"><span class="ico" data-i="s-triangle"></span><i>三角</i></button>
+      </div>
+    </div>
+
+    <!-- 贴纸弹层 -->
+    <div id="stickerPanel" class="popover hidden">
+      <div class="pop-title">贴纸（点一下，再点白板放置）</div>
+      <div class="sticker-grid" id="stickerGrid"></div>
+    </div>
+
+    <!-- 背景弹层 -->
+    <div id="bgPanel" class="popover hidden">
+      <div class="pop-title">白板背景</div>
+      <div class="bg-grid" id="bgGrid"></div>
+    </div>
+
+    <!-- 底部工具栏（无独立移动工具：点选对象即选中，可直接拖拽挪动/缩放） -->
+    <div id="toolbar" class="bar">
+      <button class="tool active" data-tool="pen" title="钢笔"><span class="ico" data-i="pen"></span></button>
+      <button class="tool" data-tool="highlighter" title="荧光笔"><span class="ico" data-i="highlighter"></span></button>
+      <button class="tool" data-tool="eraser" title="橡皮"><span class="ico" data-i="eraser"></span></button>
+      <span class="sep"></span>
+      <button class="tool" data-tool="shape" id="btnShape" title="图形"><span class="ico" data-i="shape"></span></button>
+      <button class="tool" data-tool="sticker" id="btnSticker" title="贴纸"><span class="ico" data-i="sticker"></span></button>
+      <button class="tool" data-tool="text" id="btnText" title="文字"><span class="ico" data-i="text"></span></button>
+      <span class="sep"></span>
+      <button class="tool" id="btnPhoto" title="相册"><span class="ico" data-i="photo"></span></button>
+      <button class="tool" id="btnTemplate" title="模板"><span class="ico" data-i="template"></span></button>
+      <span class="sep"></span>
+      <button class="tool" id="btnBg" title="背景"><span class="ico" data-i="bg"></span></button>
+      <button class="tool" id="btnSize" title="粗细"><span class="ico" data-i="size"></span></button>
+      <input type="color" id="colorPick" value="#111827" title="颜色" />
+      <span class="sep"></span>
+      <button id="btnUndo" title="撤销"><span class="ico" data-i="undo"></span></button>
+      <button id="btnRedo" title="重做"><span class="ico" data-i="redo"></span></button>
+      <button id="btnClear" title="清空"><span class="ico" data-i="trash"></span></button>
+    </div>
+
+    <!-- 录制按钮 -->
+    <button id="btnPause" class="pause-btn hidden" title="暂停/继续"><span class="ico" data-i="pause"></span></button>
+    <button id="btnRecord" class="rec-btn" title="录制">
+      <span class="dot"></span>
+    </button>
+
+    <!-- 录制计时 -->
+    <div id="recTimer" class="hidden">00:00</div>
+
+    <!-- 倒计时 -->
+    <div id="countdown" class="hidden">3</div>
+
+    <!-- 照片/视频/拍照 弹层（相册工具栏选项） -->
+    <div id="photoPanel" class="popover hidden photo-popover">
+      <button class="photo-opt" data-mode="photo"><span class="ico" data-i="photo"></span><i>照片</i></button>
+      <button class="photo-opt" data-mode="video"><span class="ico" data-i="video"></span><i>视频</i></button>
+      <button class="photo-opt" data-mode="camera"><span class="ico" data-i="camera"></span><i>拍照</i></button>
+    </div>
+
+    <!-- 媒体导入：通用文件 + 拍照专用 -->
+    <input type="file" id="fileImport" class="hidden" accept="image/*,video/*" />
+    <input type="file" id="fileCamera" class="hidden" accept="image/*" capture="environment" />
+
+    <!-- 模板弹层 -->
+    <div id="templatePanel" class="popover hidden">
+      <div class="pop-title">模板（点一个，再点画布放置）</div>
+      <div class="template-grid" id="templateGrid"></div>
+    </div>
+
+    <!-- 文字输入（画布内透明编辑，回车确定） -->
+    <input id="textInput" type="text" class="hidden" placeholder="输入文字…" autocomplete="off" />
+
+    <!-- 预览弹窗 -->
+    <div id="preview" class="modal hidden">
+      <video id="prevVideo" controls playsinline></video>
+      <div class="modal-actions">
+        <button id="btnDownload" class="primary">保存到相册</button>
+        <button id="btnReRecord">重录</button>
+        <button id="btnClosePreview">关闭</button>
+      </div>
+      <p class="hint" id="previewHint"></p>
+    </div>
+
+    <!-- 启动遮罩（保留原版） -->
+    <div id="startOverlay">
+      <div class="start-card">
+        <div class="brand-mark">H</div>
+        <h1>HOTELAI 白板录屏</h1>
+        <p class="sub">手机端白板 · 摄像头录屏 · 一键成片</p>
+        <div class="byline">
+          <span class="by-studio">谢瑷曈工作室</span>
+          <span class="by-pill">酒店 AI 实战营</span>
+        </div>
+        <button id="btnStart">开始使用</button>
+        <p class="tiny">需要授权摄像头和麦克风</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="camera.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
